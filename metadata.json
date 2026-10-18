@@ -1,0 +1,6 @@
+{
+  "name": "Floating Buddy AI",
+  "description": "A cute slime buddy native Android floating overlay app powered by OpenRouter AI with interactive phone simulator and complete exportable Kotlin codebase.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
