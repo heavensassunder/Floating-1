@@ -18,6 +18,14 @@ import {
 import JSZip from 'jszip';
 import { ANDROID_CODEBASE } from './data/androidCodebase';
 
+const defaultSlimeStats: SlimeStatsData = {
+  hunger: 92,
+  happiness: 88,
+  energy: 95,
+  lastFed: Date.now(),
+  moodIndex: 0
+};
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<'simulator' | 'code' | 'guide'>('simulator');
 
@@ -25,14 +33,17 @@ export default function App() {
   const [stats, setStats] = useState<SlimeStatsData>(() => {
     try {
       const saved = localStorage.getItem('slime_stats');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved) as Partial<SlimeStatsData>;
+        return {
+          ...defaultSlimeStats,
+          ...parsed,
+          lastFed: parsed.lastFed ?? Date.now(),
+          moodIndex: parsed.moodIndex ?? 0
+        };
+      }
     } catch {}
-    return {
-      hunger: 92,
-      happiness: 88,
-      energy: 95,
-      lastFed: Date.now()
-    };
+    return defaultSlimeStats;
   });
 
   // Service running state
@@ -45,7 +56,10 @@ export default function App() {
 
   // Background ticker: hunger drops every 5 minutes (or simulated tick)
   useEffect(() => {
-    localStorage.setItem('slime_stats', JSON.stringify(stats));
+    localStorage.setItem('slime_stats', JSON.stringify({
+      ...stats,
+      moodIndex: stats.moodIndex ?? 0
+    }));
   }, [stats]);
 
   useEffect(() => {
@@ -59,7 +73,8 @@ export default function App() {
         return {
           ...prev,
           hunger: nextHunger,
-          happiness: nextHappiness
+          happiness: nextHappiness,
+          moodIndex: prev.moodIndex ?? 0
         };
       });
     }, 60000); // tick every minute
@@ -211,7 +226,7 @@ Push this repository to GitHub, go to the Actions tab, and download the "floatin
           {/* Download Action */}
           <button
             onClick={handleDownloadZip}
-            className="hidden md:flex items-center gap-2 bg-slate-800 hover:bg-slate-700 active:scale-95 text-white text-xs font-semibold px-3 py-2 rounded-xl border border-slate-700 transition-all shadow"
+            className="hidden md:flex items-center gap-2 bg-slate-800 hover:bg-slate-700 active:scale-95 text-white text-xs font-semibold px-3 py-2 rounded-xl border border-slate-700 transition-all"
           >
             <Download className="w-3.5 h-3.5 text-emerald-400" />
             <span>Download Android Project (.ZIP)</span>
