@@ -36,6 +36,11 @@ export const FloatingSlimeOverlay: React.FC<FloatingSlimeOverlayProps> = ({
   const [scale, setScale] = useState<number>(1);
   const [speechMessage, setSpeechMessage] = useState<string | null>("I'm alive! 🧠");
 
+  // Dance state
+  const [isDancing, setIsDancing] = useState<boolean>(false);
+  const danceRotationRef = useRef<number>(0);
+  const danceNotePhaseRef = useRef<number>(0);
+
   const bounceRef = useRef<number>(0);
   const squishRef = useRef<number>(0);
   const isBouncingRef = useRef<boolean>(false);
@@ -57,7 +62,7 @@ export const FloatingSlimeOverlay: React.FC<FloatingSlimeOverlayProps> = ({
 
   // Bounce animation matching SlimeView.bounceAnim()
   const bounceAnim = useCallback(() => {
-    if (isBouncingRef.current) return;
+    if (isBouncingRef.current || isDancing) return;
     isBouncingRef.current = true;
     const startTime = performance.now();
     const duration = 500;
@@ -65,7 +70,7 @@ export const FloatingSlimeOverlay: React.FC<FloatingSlimeOverlayProps> = ({
     const animate = (now: number) => {
       const elapsed = now - startTime;
       const frac = Math.min(1, elapsed / duration);
-      bounceRef.current = -Math.sin(frac * Math.PI) * 35; // bounce up
+      bounceRef.current = -Math.sin(frac * Math.PI) * 35;
       squishRef.current = Math.sin(frac * Math.PI) * 0.35;
 
       if (frac < 1) {
@@ -77,7 +82,56 @@ export const FloatingSlimeOverlay: React.FC<FloatingSlimeOverlayProps> = ({
       }
     };
     requestAnimationFrame(animate);
-  }, []);
+  }, [isDancing]);
+
+  // Dance animation matching SlimeView.danceAnim()
+  const danceAnim = useCallback((durationMs: number = 4500) => {
+    if (isDancing) return;
+    setIsDancing(true);
+    const dancePhrases = ["Dancing time! 💃🎶", "Cha cha bloop! 🎵", "Feel the beat! 🕺✨"];
+    say(dancePhrases[Math.floor(Math.random() * dancePhrases.length)], durationMs);
+
+    confetti({ particleCount: 25, spread: 70, origin: { y: 0.6 } });
+
+    const startTime = performance.now();
+
+    const animateDance = (now: number) => {
+      const elapsed = now - startTime;
+      const frac = Math.min(1, elapsed / durationMs);
+      const cycles = frac * Math.PI * 12;
+
+      danceRotationRef.current = Math.sin(cycles) * 16;
+      bounceRef.current = -Math.abs(Math.sin(cycles)) * 22;
+      squishRef.current = Math.sin(cycles) * 0.22;
+      danceNotePhaseRef.current = frac * 360;
+
+      if (frac < 1) {
+        requestAnimationFrame(animateDance);
+      } else {
+        setIsDancing(false);
+        danceRotationRef.current = 0;
+        bounceRef.current = 0;
+        squishRef.current = 0;
+      }
+    };
+    requestAnimationFrame(animateDance);
+  }, [isDancing, say]);
+
+  // Random Dance Mode Interval (triggers spontaneously every 45-75s)
+  useEffect(() => {
+    const triggerRandomDance = () => {
+      const idleFor = Date.now() - lastInteractionRef.current;
+      // Dance spontaneously if not sleeping, not angry, and user is around
+      if (mood !== 1 && mood !== 2 && idleFor < 180000 && isActive) {
+        danceAnim();
+      }
+      const nextDelay = 45000 + Math.random() * 30000;
+      danceTimeout = setTimeout(triggerRandomDance, nextDelay);
+    };
+
+    let danceTimeout = setTimeout(triggerRandomDance, 35000);
+    return () => clearTimeout(danceTimeout);
+  }, [mood, isActive, danceAnim]);
 
   // Keep stats in sync with mood
   useEffect(() => {
@@ -118,7 +172,7 @@ export const FloatingSlimeOverlay: React.FC<FloatingSlimeOverlayProps> = ({
   useEffect(() => {
     const idleCheckInterval = setInterval(() => {
       const idleFor = Date.now() - lastInteractionRef.current;
-      if (idleFor > 60000 && isActive) {
+      if (idleFor > 60000 && isActive && !isDancing) {
         const idleMessages = ["Hey! 😢", "Play with me!", "I'm lonely...", "Tap me!"];
         say(idleMessages[Math.floor(Math.random() * idleMessages.length)]);
         setMood(0);
@@ -126,7 +180,7 @@ export const FloatingSlimeOverlay: React.FC<FloatingSlimeOverlayProps> = ({
       }
     }, 45000);
     return () => clearInterval(idleCheckInterval);
-  }, [isActive, say, bounceAnim]);
+  }, [isActive, say, bounceAnim, isDancing]);
 
   // Continuous Idle breathing loop matching SlimeView.startIdle()
   useEffect(() => {
@@ -134,8 +188,8 @@ export const FloatingSlimeOverlay: React.FC<FloatingSlimeOverlayProps> = ({
     const renderLoop = () => {
       idleAngleRef.current = (idleAngleRef.current + 2.5) % 360;
 
-      // If not in a hard bounce, squish with subtle sine wave breathing
-      if (!isBouncingRef.current) {
+      // If not in a hard bounce or dance, squish with subtle sine wave breathing
+      if (!isBouncingRef.current && !isDancing) {
         squishRef.current = Math.sin((idleAngleRef.current * Math.PI) / 180) * 0.05;
       }
 
@@ -145,9 +199,9 @@ export const FloatingSlimeOverlay: React.FC<FloatingSlimeOverlayProps> = ({
 
     animId = requestAnimationFrame(renderLoop);
     return () => cancelAnimationFrame(animId);
-  }, [mood, scale]);
+  }, [mood, scale, isDancing]);
 
-  // Main Canvas Drawing function strictly reproducing the user's SlimeView.onDraw()
+  // Main Canvas Drawing function reproducing SlimeView.onDraw() with Mood 5 & Dance
   const drawSlime = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -165,41 +219,42 @@ export const FloatingSlimeOverlay: React.FC<FloatingSlimeOverlayProps> = ({
     ctx.save();
     ctx.translate(cx, cy);
     ctx.scale(scale, scale);
+
+    // Apply dance rotation sway
+    if (isDancing) {
+      ctx.rotate((danceRotationRef.current * Math.PI) / 180);
+    }
     ctx.translate(-cx, -cy);
 
-    // 1. Shadow underneath the slime:
-    // bodyDarkPaint.alpha = 70; rect.set(cx - w*0.4f, cy + h*0.3f, cx + w*0.4f, cy + h*0.45f); canvas.drawOval(rect, bodyDarkPaint);
+    // 1. Floor shadow under slime
     ctx.fillStyle = 'rgba(46, 134, 193, 0.35)'; // #2E86C1 with alpha ~70/255
     ctx.beginPath();
     ctx.ellipse(cx, cy + h * 0.36, w * 0.4, h * 0.08, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // 2. Organic Slime Body:
-    // val squishH = 1f - squish; val squishW = 1f + squish
-    // rect.set(cx - w*0.42f * squishW, cy - h*0.32f * squishH, cx + w*0.42f * squishW, cy + h*0.36f * squishH); canvas.drawOval(rect, bodyPaint)
+    // 2. Organic squishy slime body
     const squishH = 1 - currentSquish;
     const squishW = 1 + currentSquish;
     const bodyRadiusX = w * 0.42 * squishW;
     const bodyRadiusY = h * 0.34 * squishH;
     const bodyCenterY = cy + h * 0.02;
 
-    ctx.fillStyle = '#5DADE2'; // Exact bodyPaint color from code
+    ctx.fillStyle = '#5DADE2'; // Exact bodyPaint color
     ctx.beginPath();
     ctx.ellipse(cx, bodyCenterY, bodyRadiusX, bodyRadiusY, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Subtle outline for crisp presence
+    // Outline
     ctx.strokeStyle = '#2E86C1';
     ctx.lineWidth = 2.5;
     ctx.stroke();
 
-    // 3. Specular Highlight Oval:
-    // rect.set(cx - w*0.28f, cy - h*0.25f, cx - w*0.05f, cy - h*0.05f); canvas.drawOval(rect, highlightPaint)
+    // 3. Specular Highlight Oval
     const hlX = cx - w * 0.165;
     const hlY = cy - h * 0.15;
     const hlRadiusX = w * 0.115;
     const hlRadiusY = h * 0.1;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.58)'; // alpha 150/255
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.58)';
     ctx.beginPath();
     ctx.ellipse(hlX, hlY, hlRadiusX, hlRadiusY, -Math.PI / 8, 0, Math.PI * 2);
     ctx.fill();
@@ -209,11 +264,10 @@ export const FloatingSlimeOverlay: React.FC<FloatingSlimeOverlayProps> = ({
     const leftEyeX = cx - w * 0.16;
     const rightEyeX = cx + w * 0.16;
 
-    // 4. Mood Expressions (0..4)
+    // 4. Mood Expressions (0..5)
     switch (mood) {
       case 0: {
         // Mood 0: Normal Happy
-        // canvas.drawCircle(leftEyeX, eyeY, w*0.07f, eyeWhitePaint); canvas.drawCircle(leftEyeX, eyeY, w*0.035f, eyePaint)...
         ctx.fillStyle = '#FFFFFF';
         ctx.beginPath();
         ctx.arc(leftEyeX, eyeY, w * 0.07, 0, Math.PI * 2);
@@ -226,7 +280,6 @@ export const FloatingSlimeOverlay: React.FC<FloatingSlimeOverlayProps> = ({
         ctx.arc(rightEyeX, eyeY, w * 0.035, 0, Math.PI * 2);
         ctx.fill();
 
-        // Smile arc: drawArc(sr, 20f, 140f, false, sp)
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = w * 0.022;
         ctx.lineCap = 'round';
@@ -247,7 +300,6 @@ export const FloatingSlimeOverlay: React.FC<FloatingSlimeOverlayProps> = ({
         ctx.lineTo(rightEyeX + w * 0.06, eyeY);
         ctx.stroke();
 
-        // Floating "Z" and "z"
         ctx.fillStyle = '#000000';
         ctx.font = `bold ${Math.round(w * 0.12)}px sans-serif`;
         ctx.fillText('Z', cx + w * 0.22, eyeY - h * 0.12);
@@ -263,14 +315,12 @@ export const FloatingSlimeOverlay: React.FC<FloatingSlimeOverlayProps> = ({
         ctx.arc(rightEyeX, eyeY, w * 0.07, 0, Math.PI * 2);
         ctx.fill();
 
-        // Downward pupils
         ctx.fillStyle = '#000000';
         ctx.beginPath();
         ctx.arc(leftEyeX, eyeY + h * 0.02, w * 0.04, 0, Math.PI * 2);
         ctx.arc(rightEyeX, eyeY + h * 0.02, w * 0.04, 0, Math.PI * 2);
         ctx.fill();
 
-        // Angry diagonal eyebrows
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = w * 0.025;
         ctx.beginPath();
@@ -280,7 +330,6 @@ export const FloatingSlimeOverlay: React.FC<FloatingSlimeOverlayProps> = ({
         ctx.lineTo(rightEyeX + w * 0.08, eyeY - h * 0.08);
         ctx.stroke();
 
-        // Flat stern mouth
         ctx.beginPath();
         ctx.moveTo(cx - w * 0.1, eyeY + h * 0.15);
         ctx.lineTo(cx + w * 0.1, eyeY + h * 0.15);
@@ -289,20 +338,18 @@ export const FloatingSlimeOverlay: React.FC<FloatingSlimeOverlayProps> = ({
       }
       case 3: {
         // Mood 3: In Love / Excited (Red eyes, heart blush, happy arc)
-        ctx.fillStyle = '#E74C3C'; // Red heart eye color from code
+        ctx.fillStyle = '#E74C3C';
         ctx.beginPath();
         ctx.arc(leftEyeX, eyeY, w * 0.05, 0, Math.PI * 2);
         ctx.arc(rightEyeX, eyeY, w * 0.05, 0, Math.PI * 2);
         ctx.fill();
 
-        // Inner blush dots
         ctx.fillStyle = 'rgba(241, 148, 138, 0.5)';
         ctx.beginPath();
         ctx.arc(cx - w * 0.06, eyeY + h * 0.15, w * 0.05, 0, Math.PI * 2);
         ctx.arc(cx + w * 0.06, eyeY + h * 0.15, w * 0.05, 0, Math.PI * 2);
         ctx.fill();
 
-        // Small sweet smile
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = w * 0.02;
         ctx.beginPath();
@@ -318,41 +365,95 @@ export const FloatingSlimeOverlay: React.FC<FloatingSlimeOverlayProps> = ({
         ctx.arc(rightEyeX, eyeY, w * 0.07, 0, Math.PI * 2);
         ctx.fill();
 
-        // Happy upward pupils
         ctx.fillStyle = '#000000';
         ctx.beginPath();
         ctx.arc(leftEyeX, eyeY - h * 0.02, w * 0.03, 0, Math.PI * 2);
         ctx.arc(rightEyeX, eyeY - h * 0.02, w * 0.03, 0, Math.PI * 2);
         ctx.fill();
 
-        // Open mouth oval
         ctx.fillStyle = '#000000';
         ctx.beginPath();
         ctx.ellipse(cx, eyeY + h * 0.13, w * 0.11, h * 0.07, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Pink tongue oval inside: #F1948A
         ctx.fillStyle = '#F1948A';
         ctx.beginPath();
         ctx.ellipse(cx, eyeY + h * 0.155, w * 0.05, h * 0.035, 0, 0, Math.PI * 2);
         ctx.fill();
         break;
       }
+      case 5: {
+        // Mood 5: Confused / Puzzled / Inquisitive
+        // Asymmetric eyes
+        ctx.fillStyle = '#FFFFFF';
+        ctx.beginPath();
+        ctx.arc(leftEyeX, eyeY, w * 0.08, 0, Math.PI * 2); // Big curious eye
+        ctx.arc(rightEyeX, eyeY, w * 0.06, 0, Math.PI * 2); // Slightly squinted eye
+        ctx.fill();
+
+        ctx.fillStyle = '#000000';
+        ctx.beginPath();
+        ctx.arc(leftEyeX + w * 0.015, eyeY - h * 0.01, w * 0.04, 0, Math.PI * 2);
+        ctx.arc(rightEyeX, eyeY, w * 0.03, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Eyebrows
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = w * 0.024;
+        ctx.lineCap = 'round';
+
+        // Left eyebrow: Inquisitively arched high
+        ctx.beginPath();
+        ctx.moveTo(leftEyeX - w * 0.08, eyeY - h * 0.13);
+        ctx.quadraticCurveTo(leftEyeX, eyeY - h * 0.19, leftEyeX + w * 0.08, eyeY - h * 0.13);
+        ctx.stroke();
+
+        // Right eyebrow: Furrowed down toward center
+        ctx.beginPath();
+        ctx.moveTo(rightEyeX - w * 0.07, eyeY - h * 0.07);
+        ctx.lineTo(rightEyeX + w * 0.07, eyeY - h * 0.11);
+        ctx.stroke();
+
+        // Wavy puzzled mouth: ~
+        ctx.beginPath();
+        ctx.moveTo(cx - w * 0.09, eyeY + h * 0.14);
+        ctx.quadraticCurveTo(cx - w * 0.03, eyeY + h * 0.11, cx, eyeY + h * 0.14);
+        ctx.quadraticCurveTo(cx + w * 0.04, eyeY + h * 0.17, cx + w * 0.09, eyeY + h * 0.14);
+        ctx.stroke();
+
+        // Floating question mark
+        ctx.fillStyle = '#38BDF8';
+        ctx.font = `bold ${Math.round(w * 0.15)}px sans-serif`;
+        ctx.fillText('?', cx + w * 0.28, eyeY - h * 0.16);
+        break;
+      }
     }
 
-    // Rosy cheeks (mood != 1)
-    if (mood !== 1) {
-      ctx.fillStyle = 'rgba(241, 148, 138, 0.5)'; // #F1948A with alpha 120/255
+    // Rosy cheeks (for moods except sleepy and confused)
+    if (mood !== 1 && mood !== 5) {
+      ctx.fillStyle = 'rgba(241, 148, 138, 0.5)';
       ctx.beginPath();
       ctx.arc(cx - w * 0.22, eyeY + h * 0.12, w * 0.05, 0, Math.PI * 2);
       ctx.arc(cx + w * 0.22, eyeY + h * 0.12, w * 0.05, 0, Math.PI * 2);
       ctx.fill();
     }
 
+    // 5. Dance Floating Musical Notes (♪, ♫)
+    if (isDancing) {
+      const phase = danceNotePhaseRef.current;
+      const note1Y = eyeY - h * 0.22 + Math.sin((phase * Math.PI) / 180) * 10;
+      const note2Y = eyeY - h * 0.28 + Math.sin(((phase + 180) * Math.PI) / 180) * 10;
+
+      ctx.fillStyle = '#A855F7';
+      ctx.font = `bold ${Math.round(w * 0.14)}px sans-serif`;
+      ctx.fillText('♪', cx - w * 0.32, note1Y);
+      ctx.fillText('♫', cx + w * 0.28, note2Y);
+    }
+
     ctx.restore();
   };
 
-  // Shake trigger external handler (used by Shake simulator button)
+  // External trigger handlers
   const triggerShakeReaction = useCallback(() => {
     setMood(2);
     bounceAnim();
@@ -361,15 +462,26 @@ export const FloatingSlimeOverlay: React.FC<FloatingSlimeOverlayProps> = ({
     lastInteractionRef.current = Date.now();
   }, [bounceAnim, say]);
 
-  // Expose shake trigger globally for simulator controls
+  const triggerConfusedReaction = useCallback(() => {
+    setMood(5);
+    bounceAnim();
+    const confusedMsgs = ["Huh? 🤔", "Wait, what?", "Does not compute! 🧩", "Bloop?"];
+    say(confusedMsgs[Math.floor(Math.random() * confusedMsgs.length)]);
+    lastInteractionRef.current = Date.now();
+  }, [bounceAnim, say]);
+
   useEffect(() => {
     (window as any).__triggerSlimeShake = triggerShakeReaction;
+    (window as any).__triggerSlimeDance = danceAnim;
+    (window as any).__triggerSlimeConfused = triggerConfusedReaction;
     return () => {
       delete (window as any).__triggerSlimeShake;
+      delete (window as any).__triggerSlimeDance;
+      delete (window as any).__triggerSlimeConfused;
     };
-  }, [triggerShakeReaction]);
+  }, [triggerShakeReaction, danceAnim, triggerConfusedReaction]);
 
-  // Touch Handlers strictly matching FloatingService MotionEvent logic
+  // Touch Handlers
   const handlePointerDown = (e: React.PointerEvent) => {
     e.stopPropagation();
     lastInteractionRef.current = Date.now();
@@ -382,8 +494,6 @@ export const FloatingSlimeOverlay: React.FC<FloatingSlimeOverlayProps> = ({
     };
     setIsDragging(false);
 
-    // Long press detection for feed (550ms):
-    // floatingView?.mood = 4; floatingView?.say("THANK YOU! 🍔"); floatingView?.bounceAnim(); floatingView?.scale = 1.35f
     longPressTimerRef.current = setTimeout(() => {
       longPressTimerRef.current = null;
       setMood(4);
@@ -436,10 +546,8 @@ export const FloatingSlimeOverlay: React.FC<FloatingSlimeOverlayProps> = ({
       if (!isDragging) {
         const now = Date.now();
         if (now - lastTapTimeRef.current < 320) {
-          // Double Tap: Screen Vision AI trigger
           handleDoubleTap();
         } else {
-          // Single Tap: Bounce, cycle mood, speak
           handleSingleTap();
         }
         lastTapTimeRef.current = now;
@@ -452,9 +560,9 @@ export const FloatingSlimeOverlay: React.FC<FloatingSlimeOverlayProps> = ({
     setIsDragging(false);
   };
 
-  // Single Tap Action
+  // Single Tap Action: Cycles 0..5 (including Confused mood 5!)
   const handleSingleTap = async () => {
-    const nextMood = (mood + 1) % 5;
+    const nextMood = (mood + 1) % 6;
     setMood(nextMood);
     bounceAnim();
 
@@ -463,7 +571,8 @@ export const FloatingSlimeOverlay: React.FC<FloatingSlimeOverlayProps> = ({
       1: ["Zzz... 😴", "Sleepy...", "So cozy..."],
       2: ["Grrr! 😠", "Don't poke me!", "Hmph!"],
       3: ["Love you! 🥰", "My hero! <3", "Yay!"],
-      4: ["Nom nom! 😋", "Yummy!", "Delicious!"]
+      4: ["Nom nom! 😋", "Yummy!", "Delicious!"],
+      5: ["Huh? 🤔", "Wait, what?", "Does not compute! 🧩", "Bloop?"]
     };
 
     const phrase = moodPhrases[nextMood][Math.floor(Math.random() * moodPhrases[nextMood].length)];
@@ -475,9 +584,10 @@ export const FloatingSlimeOverlay: React.FC<FloatingSlimeOverlayProps> = ({
     }
 
     // Call OpenRouter AI
-    const statsSummary = `Mood ${nextMood}, Hunger: ${stats.hunger}%, Happiness: ${stats.happiness}%`;
+    const moodName = ["Happy", "Sleepy", "Grumpy", "In Love", "Eating", "Confused / Puzzled"][nextMood];
+    const statsSummary = `Mood: ${moodName}, Hunger: ${stats.hunger}%, Happiness: ${stats.happiness}%`;
     const reply = await chatWithOpenRouter(
-      `My mood is ${nextMood} and my stats are ${statsSummary}. Say something short and cheeky!`
+      `My mood is ${moodName} and my stats are ${statsSummary}. Say something short, cheeky and matching this exact expression!`
     );
     say(reply, 5000);
 
@@ -489,9 +599,9 @@ export const FloatingSlimeOverlay: React.FC<FloatingSlimeOverlayProps> = ({
 
   // Double Tap Action: Screen Vision
   const handleDoubleTap = async () => {
-    setMood(3);
+    setMood(5); // Switch to Confused/Curious while analyzing
     bounceAnim();
-    say("Looking at your screen... 👁️", 3000);
+    say("Looking closely at your screen... 🔍", 3000);
 
     try {
       const base64 = await onCaptureScreen();
@@ -509,7 +619,7 @@ export const FloatingSlimeOverlay: React.FC<FloatingSlimeOverlayProps> = ({
 
   return (
     <div className="absolute inset-0 pointer-events-none select-none z-40 overflow-hidden">
-      {/* Native-style Speech Bubble with Directional Tail from SlimeView */}
+      {/* Speech Bubble with Directional Tail */}
       {speechMessage && (
         <div
           className="absolute pointer-events-auto transition-all duration-200 transform scale-100"
@@ -521,7 +631,6 @@ export const FloatingSlimeOverlay: React.FC<FloatingSlimeOverlayProps> = ({
         >
           <div className="relative bg-white text-slate-900 text-xs font-bold px-3.5 py-2.5 rounded-2xl shadow-xl border border-slate-200 text-center leading-snug">
             {speechMessage}
-            {/* Tail pointing down to Slime */}
             <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[9px] border-t-white" />
           </div>
         </div>
@@ -550,9 +659,19 @@ export const FloatingSlimeOverlay: React.FC<FloatingSlimeOverlayProps> = ({
 
         {/* Small Mood Indicator Tag */}
         <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-slate-900/90 text-[9px] px-2 py-0.5 rounded-full text-white font-mono border border-slate-700 shadow flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
+          <span
+            className={`w-1.5 h-1.5 rounded-full ${
+              isDancing
+                ? 'bg-purple-400 animate-ping'
+                : mood === 5
+                ? 'bg-sky-400'
+                : 'bg-emerald-400'
+            }`}
+          />
           <span>
-            {mood === 0
+            {isDancing
+              ? 'Dancing 🎵'
+              : mood === 0
               ? 'Happy'
               : mood === 1
               ? 'Sleepy'
@@ -560,7 +679,9 @@ export const FloatingSlimeOverlay: React.FC<FloatingSlimeOverlayProps> = ({
               ? 'Angry'
               : mood === 3
               ? 'Love'
-              : 'NomNom'}
+              : mood === 4
+              ? 'NomNom'
+              : 'Confused 🤔'}
           </span>
         </div>
       </div>

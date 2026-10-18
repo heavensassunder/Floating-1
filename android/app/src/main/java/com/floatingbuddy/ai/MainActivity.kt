@@ -454,19 +454,57 @@ fun FloatingBuddyApp() {
                     Text("Stop Floating Buddy", fontSize = 14.sp)
                 }
 
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Animation Quick Test Triggers
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            val danceIntent = Intent(context, FloatingService::class.java).apply {
+                                action = FloatingService.ACTION_TRIGGER_DANCE
+                            }
+                            context.startService(danceIntent)
+                            Toast.makeText(context, "Dancing mode triggered! 💃🎶", Toast.LENGTH_SHORT).show()
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("💃 Dance Mode", fontSize = 12.sp)
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            val confusedIntent = Intent(context, FloatingService::class.java).apply {
+                                action = FloatingService.ACTION_TRIGGER_CONFUSED
+                            }
+                            context.startService(confusedIntent)
+                            Toast.makeText(context, "Confused state triggered! 🤔", Toast.LENGTH_SHORT).show()
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("🤔 Confused Mood", fontSize = 12.sp)
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Gesture cheat sheet
                 Text(
-                    text = "Slime Overlay Gestures:",
+                    text = "Slime Overlay Gestures & Animations:",
                     color = Color.White,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium
                 )
                 Spacer(modifier = Modifier.height(6.dp))
-                GestureInfo(gesture = "👆 Single Tap", action = "AI cute chat with current stats")
-                GestureInfo(gesture = "✌️ Double Tap", action = "Screen capture & AI vision analysis")
-                GestureInfo(gesture = "⏱️ Long Press (500ms)", action = "Open Quick Feed Menu (+20)")
+                GestureInfo(gesture = "👆 Single Tap", action = "AI cute chat & cycles 6 mood expressions")
+                GestureInfo(gesture = "✌️ Double Tap", action = "Confused reaction + AI screen vision analysis")
+                GestureInfo(gesture = "⏱️ Long Press (500ms)", action = "Nom Nom feeding animation (+20)")
+                GestureInfo(gesture = "📳 Shake Device", action = "Alternates between dizzy (😠) and confused (🤔)")
+                GestureInfo(gesture = "💃 Dance Mode", action = "Spontaneously bursts into dance every 45-75s!")
                 GestureInfo(gesture = "🖐️ Drag", action = "Freely move slime anywhere on screen")
             }
         }

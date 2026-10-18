@@ -324,21 +324,31 @@ Push this repository to GitHub, go to the Actions tab, and download the "floatin
 
                 <div className="bg-slate-900/80 p-4 rounded-2xl border border-slate-700/60 space-y-1.5">
                   <h3 className="text-sm font-semibold text-rose-400 flex items-center gap-2">
-                    <span>5. FloatingService.kt</span>
+                    <span>5. SlimeView.kt</span>
                   </h3>
                   <p className="text-xs text-slate-300">
-                    Foreground service drawing the custom canvas slime. Detects gestures (Single tap chat,
-                    Double tap screenshot vision, Long press 500ms care menu, and drag to move).
+                    Custom native Canvas drawing with 6 mood expressions (including Confused with arched/furrowed eyebrows),
+                    rhythmic dance mode with musical notes (♪, ♫), squish physics, and speech bubbles.
+                  </p>
+                </div>
+
+                <div className="bg-slate-900/80 p-4 rounded-2xl border border-slate-700/60 space-y-1.5">
+                  <h3 className="text-sm font-semibold text-purple-400 flex items-center gap-2">
+                    <span>6. FloatingService.kt</span>
+                  </h3>
+                  <p className="text-xs text-slate-300">
+                    Foreground overlay service. Hosts SlimeView, schedules spontaneous Dance Mode at random intervals (every 45-75s),
+                    responds to hardware accelerometer shakes, and connects gestures to OpenRouter AI.
                   </p>
                 </div>
 
                 <div className="bg-slate-900/80 p-4 rounded-2xl border border-slate-700/60 space-y-1.5">
                   <h3 className="text-sm font-semibold text-cyan-400 flex items-center gap-2">
-                    <span>6. MainActivity.kt (Compose)</span>
+                    <span>7. MainActivity.kt (Compose)</span>
                   </h3>
                   <p className="text-xs text-slate-300">
-                    Material 3 control center. Handles overlay and media projection runtime permission
-                    requests, stores OpenRouter API key, and displays live stat progress bars.
+                    Material 3 control center. Handles permissions, API key storage, live stat progress bars,
+                    service controls, and quick animation triggers (💃 Dance & 🤔 Confused).
                   </p>
                 </div>
               </div>

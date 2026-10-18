@@ -3,10 +3,10 @@ export interface SlimeStatsData {
   happiness: number;
   energy: number;
   lastFed: number;
-  moodIndex: number; // 0: Happy, 1: Sleepy, 2: Angry/Dizzy, 3: In Love/Charging, 4: Yummy
+  moodIndex: number; // 0: Happy, 1: Sleepy, 2: Angry, 3: In Love, 4: Yummy, 5: Confused
 }
 
-export type SlimeMood = 'HAPPY' | 'SLEEPY' | 'ANGRY' | 'LOVE' | 'YUMMY';
+export type SlimeMood = 'HAPPY' | 'SLEEPY' | 'ANGRY' | 'LOVE' | 'YUMMY' | 'CONFUSED' | 'DANCE';
 
 export interface CodeFile {
   name: string;

@@ -319,27 +319,58 @@ export const ComposeMainActivity: React.FC<ComposeMainActivityProps> = ({
                 Stop Floating Buddy
               </button>
             )}
+
+            {isServiceRunning && (
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button
+                  onClick={() => {
+                    (window as any).__triggerSlimeDance?.(4500);
+                    showToast('💃 Spontaneous dance mode triggered!');
+                  }}
+                  className="bg-purple-600/30 hover:bg-purple-600/50 active:scale-95 text-purple-200 border border-purple-500/40 text-[11px] font-medium py-1.5 px-2 rounded-xl transition-all flex items-center justify-center gap-1"
+                >
+                  💃 Dance Now
+                </button>
+                <button
+                  onClick={() => {
+                    (window as any).__triggerSlimeConfused?.();
+                    showToast('🤔 Confused mood triggered!');
+                  }}
+                  className="bg-sky-600/30 hover:bg-sky-600/50 active:scale-95 text-sky-200 border border-sky-500/40 text-[11px] font-medium py-1.5 px-2 rounded-xl transition-all flex items-center justify-center gap-1"
+                >
+                  🤔 Confused Mood
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Gestures Guide */}
           <div className="pt-2 border-t border-slate-700/60 text-xs">
-            <p className="text-[11px] font-semibold text-slate-200 mb-1.5">Floating Gestures:</p>
+            <p className="text-[11px] font-semibold text-slate-200 mb-1.5">Floating Gestures & Reactions:</p>
             <div className="space-y-1 text-[11px] text-slate-300">
               <div className="flex justify-between py-0.5">
                 <span className="text-slate-400">👆 Single Tap:</span>
-                <span className="text-sky-300">Ask AI with current stats</span>
+                <span className="text-sky-300">Cute chat + cycles 6 moods</span>
               </div>
               <div className="flex justify-between py-0.5">
                 <span className="text-slate-400">✌️ Double Tap:</span>
-                <span className="text-emerald-300">Screen capture & vision AI</span>
+                <span className="text-emerald-300">Confused state + vision AI</span>
               </div>
               <div className="flex justify-between py-0.5">
                 <span className="text-slate-400">⏱️ Long Press (500ms):</span>
-                <span className="text-amber-300">Open Quick Care feed menu</span>
+                <span className="text-amber-300">Nom Nom feed (+20 hunger)</span>
+              </div>
+              <div className="flex justify-between py-0.5">
+                <span className="text-slate-400">💃 Dance Breaks:</span>
+                <span className="text-purple-300">Auto triggers every 45-75s</span>
+              </div>
+              <div className="flex justify-between py-0.5">
+                <span className="text-slate-400">📳 Shake Phone:</span>
+                <span className="text-pink-300">Dizzy or Confused reaction</span>
               </div>
               <div className="flex justify-between py-0.5">
                 <span className="text-slate-400">🖐️ Drag Slime:</span>
-                <span className="text-purple-300">Move anywhere on screen</span>
+                <span className="text-slate-300">Move anywhere on screen</span>
               </div>
             </div>
           </div>

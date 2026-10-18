@@ -17,7 +17,9 @@ import {
   Moon,
   Sun,
   Zap,
-  Utensils
+  Utensils,
+  Music,
+  HelpCircle
 } from 'lucide-react';
 
 interface PhoneSimulatorProps {
@@ -554,6 +556,48 @@ export const PhoneSimulator: React.FC<PhoneSimulatorProps> = ({
               className="bg-rose-600 hover:bg-rose-500 active:scale-95 text-white text-xs font-semibold px-3 py-1.5 rounded-xl transition-all shadow"
             >
               Feed 🍔
+            </button>
+          </div>
+
+          {/* 6. Spontaneous Dance Mode */}
+          <div className="bg-slate-800/80 p-3 rounded-2xl border border-slate-700/60 flex items-center justify-between gap-3">
+            <div>
+              <div className="text-xs font-semibold text-white flex items-center gap-1.5">
+                <Music className="w-4 h-4 text-purple-400" />
+                <span>Dance Mode (Random / Manual)</span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-0.5">Rhythmic sway, beat bounce & notes ♪ ♫</p>
+            </div>
+            <button
+              onClick={() => {
+                if (typeof (window as any).__triggerSlimeDance === 'function') {
+                  (window as any).__triggerSlimeDance(4500);
+                }
+              }}
+              className="bg-purple-600 hover:bg-purple-500 active:scale-95 text-white text-xs font-semibold px-3 py-1.5 rounded-xl transition-all shadow"
+            >
+              Dance! 🎵
+            </button>
+          </div>
+
+          {/* 7. Confused / Puzzled State */}
+          <div className="bg-slate-800/80 p-3 rounded-2xl border border-slate-700/60 flex items-center justify-between gap-3">
+            <div>
+              <div className="text-xs font-semibold text-white flex items-center gap-1.5">
+                <HelpCircle className="w-4 h-4 text-sky-400" />
+                <span>Confused State (Mood 5)</span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-0.5">Asymmetric brows, wavy mouth & "?"</p>
+            </div>
+            <button
+              onClick={() => {
+                if (typeof (window as any).__triggerSlimeConfused === 'function') {
+                  (window as any).__triggerSlimeConfused();
+                }
+              }}
+              className="bg-sky-600 hover:bg-sky-500 active:scale-95 text-white text-xs font-semibold px-3 py-1.5 rounded-xl transition-all shadow"
+            >
+              Confuse 🤔
             </button>
           </div>
         </div>

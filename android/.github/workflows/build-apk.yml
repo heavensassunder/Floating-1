@@ -27,33 +27,46 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.2'
 
       - name: Grant Execute Permissions to Gradle
         run: |
-          if [ -f "./gradlew" ]; then
-            chmod +x ./gradlew
-          elif [ -f "./android/gradlew" ]; then
+          if [ -f "./android/gradlew" ]; then
             chmod +x ./android/gradlew
+          elif [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
           fi
 
       - name: Build Debug APK with Gradle
         run: |
           if [ -d "./android" ]; then
             cd android
+          fi
+          # Ensure Gradle wrapper exists or generate it
+          if [ ! -f "gradle/wrapper/gradle-wrapper.jar" ]; then
+            echo "Generating Gradle wrapper via Gradle CLI..."
+            gradle wrapper --gradle-version 8.2 || true
+          fi
+          if [ -f "./gradlew" ] && [ -f "gradle/wrapper/gradle-wrapper.jar" ]; then
+            chmod +x ./gradlew
             ./gradlew assembleDebug --stacktrace
           else
-            ./gradlew assembleDebug --stacktrace
+            echo "Building directly with system Gradle..."
+            gradle assembleDebug --stacktrace
           fi
 
       - name: Verify Generated APK
         run: |
           echo "Locating built APK files..."
-          find . -name "*.apk" -type f
+          find . -name "*.apk" -type f -exec ls -lh {} +
 
       - name: Upload Debug APK to Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: floating-buddy-ai-debug-apk
-          path: '**/app/build/outputs/apk/debug/*.apk'
+          path: |
+            **/app/build/outputs/apk/debug/*.apk
+            **/build/outputs/apk/debug/*.apk
           retention-days: 30
           if-no-files-found: error

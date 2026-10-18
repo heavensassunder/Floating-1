@@ -668,11 +668,11 @@ class ScreenshotHelper(
 }`
   },
   {
-    name: 'FloatingService.kt',
-    path: 'app/src/main/java/com/floatingbuddy/ai/FloatingService.kt',
+    name: 'SlimeView.kt',
+    path: 'app/src/main/java/com/floatingbuddy/ai/SlimeView.kt',
     language: 'kotlin',
     category: 'Kotlin',
-    description: 'Hosts animated SlimeView overlay, accelerometer shake sensor, battery broadcast receiver, night circadian sleep, idle timers, and OpenRouter AI vision',
+    description: 'Custom native View drawing animated slime with 6 mood expressions (including Confused with eyebrows), squish physics, dance sway, and speech bubble',
     content: `package com.floatingbuddy.ai
 
 import android.animation.ValueAnimator
@@ -719,22 +719,35 @@ import kotlinx.coroutines.withContext
 import java.util.Calendar
 import kotlin.math.sin
 import kotlin.math.sqrt
+import kotlin.random.Random
 
 /**
  * SlimeView
  * Custom native View that draws the animated slime companion:
  * - Dynamic squish, idle breathing oscillation, and bounce physics
  * - Floor shadow oval with variable alpha
- * - 5 distinct mood expressions (0: Happy, 1: Sleepy Zzz, 2: Angry/Dizzy, 3: In Love, 4: Yummy/Nom)
+ * - 6 distinct mood expressions:
+ *     0: Happy
+ *     1: Sleepy (Zzz)
+ *     2: Angry / Dizzy
+ *     3: In Love / Excited
+ *     4: Yummy / Nom Nom
+ *     5: Confused (Asymmetric raised/lowered eyebrows, wavy mouth, floating '?')
+ * - Dance mode: Rhythmic sway, musical notes (♪, ♫), and hip hop bounce!
  * - Custom speech bubble with directional tail
  */
 class SlimeView(context: Context) : View(context) {
     var squish = 0f
     var bounce = 0f
     var mood = 0
-        set(v) { field = v % 5; invalidate() }
+        set(v) { field = v % 6; invalidate() }
     var message: String? = null
     var scale = 1f
+
+    // Dance state
+    var isDancing = false
+    var danceRotation = 0f
+    var danceNotePhase = 0f
 
     private val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#5DADE2") }
     private val bodyDarkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#2E86C1") }
@@ -742,6 +755,11 @@ class SlimeView(context: Context) : View(context) {
     private val eyePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.BLACK }
     private val eyeWhitePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
     private val blushPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#F1948A"); alpha = 120 }
+    private val musicNotePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#8B5CF6")
+        textSize = 36f
+        typeface = Typeface.DEFAULT_BOLD
+    }
     private val bubblePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
         setShadowLayer(10f, 0f, 4f, Color.parseColor("#94A3B8"))
@@ -767,6 +785,37 @@ class SlimeView(context: Context) : View(context) {
         }
     }
 
+    /**
+     * Triggers rhythmic dance animation with musical notes and rotation sway
+     */
+    fun danceAnim(durationMs: Long = 4000) {
+        if (isDancing) return
+        isDancing = true
+        say(listOf("Dancing time! 💃🎶", "Cha cha bloop! 🎵", "Feel the beat! 🕺✨").random(), durationMs)
+
+        val animator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = durationMs
+            addUpdateListener {
+                val frac = it.animatedFraction
+                val cycles = frac * Math.PI * 12
+                danceRotation = sin(cycles).toFloat() * 16f
+                bounce = kotlin.math.abs(sin(cycles)).toFloat() * 22f
+                squish = sin(cycles).toFloat() * 0.22f
+                danceNotePhase = frac * 360f
+                invalidate()
+            }
+        }
+        animator.start()
+
+        postDelayed({
+            isDancing = false
+            danceRotation = 0f
+            bounce = 0f
+            squish = 0f
+            invalidate()
+        }, durationMs)
+    }
+
     fun say(text: String, durationMs: Long = 4000) {
         message = text
         invalidate()
@@ -784,9 +833,11 @@ class SlimeView(context: Context) : View(context) {
             duration = 2000
             repeatCount = ValueAnimator.INFINITE
             addUpdateListener {
-                val deg = it.animatedValue as Float
-                squish = sin(Math.toRadians(deg.toDouble())).toFloat() * 0.05f
-                invalidate()
+                if (!isDancing) {
+                    val deg = it.animatedValue as Float
+                    squish = sin(Math.toRadians(deg.toDouble())).toFloat() * 0.05f
+                    invalidate()
+                }
             }
             start()
         }
@@ -800,6 +851,11 @@ class SlimeView(context: Context) : View(context) {
 
         canvas.save()
         canvas.scale(scale, scale, cx, cy)
+
+        // Rotate for dance mode
+        if (isDancing) {
+            canvas.rotate(danceRotation, cx, cy)
+        }
 
         // 1. Floor shadow under slime
         bodyDarkPaint.alpha = 70
@@ -826,7 +882,7 @@ class SlimeView(context: Context) : View(context) {
         val leftEyeX = cx - w * 0.16f
         val rightEyeX = cx + w * 0.16f
 
-        // 4. Mood expressions (0: Normal Happy, 1: Sleepy Zzz, 2: Angry/Dizzy, 3: In Love, 4: Yummy)
+        // 4. Mood expressions (0: Happy, 1: Sleepy, 2: Angry, 3: In Love, 4: Yummy, 5: Confused)
         when (mood) {
             0 -> {
                 // Happy big eyes and smile
@@ -910,15 +966,67 @@ class SlimeView(context: Context) : View(context) {
                 val tp = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#F1948A") }
                 canvas.drawOval(RectF(cx - w * 0.05f, eyeY + h * 0.12f, cx + w * 0.05f, eyeY + h * 0.20f), tp)
             }
+            5 -> {
+                // Confused / Curious mood: Asymmetrical eyebrows and question mark
+                // Left eye: Big wide inquisitive eye
+                canvas.drawCircle(leftEyeX, eyeY, w * 0.08f, eyeWhitePaint)
+                canvas.drawCircle(leftEyeX + w * 0.015f, eyeY - h * 0.01f, w * 0.04f, eyePaint)
+
+                // Right eye: Slightly narrowed skeptical eye
+                canvas.drawCircle(rightEyeX, eyeY, w * 0.06f, eyeWhitePaint)
+                canvas.drawCircle(rightEyeX, eyeY, w * 0.03f, eyePaint)
+
+                // Eyebrow Paint
+                val bp = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.BLACK
+                    style = Paint.Style.STROKE
+                    strokeWidth = w * 0.024f
+                    strokeCap = Paint.Cap.ROUND
+                }
+
+                // Left Eyebrow: Inquisitively arched high
+                val leftBrow = Path().apply {
+                    moveTo(leftEyeX - w * 0.08f, eyeY - h * 0.13f)
+                    quadTo(leftEyeX, eyeY - h * 0.19f, leftEyeX + w * 0.08f, eyeY - h * 0.13f)
+                }
+                canvas.drawPath(leftBrow, bp)
+
+                // Right Eyebrow: Furrowed down toward center
+                canvas.drawLine(rightEyeX - w * 0.07f, eyeY - h * 0.07f, rightEyeX + w * 0.07f, eyeY - h * 0.11f, bp)
+
+                // Wavy puzzled mouth: ~
+                val mouthPath = Path().apply {
+                    moveTo(cx - w * 0.09f, eyeY + h * 0.14f)
+                    quadTo(cx - w * 0.03f, eyeY + h * 0.11f, cx, eyeY + h * 0.14f)
+                    quadTo(cx + w * 0.04f, eyeY + h * 0.17f, cx + w * 0.09f, eyeY + h * 0.14f)
+                }
+                canvas.drawPath(mouthPath, bp)
+
+                // Floating question mark above right side
+                val qp = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.parseColor("#38BDF8")
+                    textSize = w * 0.15f
+                    typeface = Typeface.DEFAULT_BOLD
+                }
+                canvas.drawText("?", cx + w * 0.28f, eyeY - h * 0.16f, qp)
+            }
         }
 
-        // Cheeks (for all moods except sleepy)
-        if (mood != 1) {
+        // Cheeks (for moods except sleepy and confused)
+        if (mood != 1 && mood != 5) {
             canvas.drawCircle(cx - w * 0.22f, eyeY + h * 0.12f, w * 0.05f, blushPaint)
             canvas.drawCircle(cx + w * 0.22f, eyeY + h * 0.12f, w * 0.05f, blushPaint)
         }
 
-        // 5. Speech Bubble with Tail
+        // 5. Dance Floating Musical Notes (♪, ♫)
+        if (isDancing) {
+            val note1Y = (eyeY - h * 0.22f) + sin(Math.toRadians(danceNotePhase.toDouble())).toFloat() * 10f
+            val note2Y = (eyeY - h * 0.28f) + sin(Math.toRadians((danceNotePhase + 180).toDouble())).toFloat() * 10f
+            canvas.drawText("♪", cx - w * 0.32f, note1Y, musicNotePaint)
+            canvas.drawText("♫", cx + w * 0.28f, note2Y, musicNotePaint)
+        }
+
+        // 6. Speech Bubble with Tail
         message?.let { msg ->
             val bw = (textPaint.measureText(msg) + 50f).coerceAtLeast(140f)
             val bh = 76f
@@ -946,12 +1054,57 @@ class SlimeView(context: Context) : View(context) {
         startIdle()
         setLayerType(LAYER_TYPE_SOFTWARE, null)
     }
-}
+}`
+  },
+  {
+    name: 'FloatingService.kt',
+    path: 'app/src/main/java/com/floatingbuddy/ai/FloatingService.kt',
+    language: 'kotlin',
+    category: 'Kotlin',
+    description: 'Foreground service hosting SlimeView overlay, spontaneous rhythmic dance intervals, shake detection, and OpenRouter AI',
+    content: `package com.floatingbuddy.ai
+
+import android.annotation.SuppressLint
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.app.Service
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.ServiceInfo
+import android.graphics.PixelFormat
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
+import android.media.projection.MediaProjection
+import android.media.projection.MediaProjectionManager
+import android.os.BatteryManager
+import android.os.Build
+import android.os.Handler
+import android.os.IBinder
+import android.os.Looper
+import android.view.Gravity
+import android.view.MotionEvent
+import android.view.WindowManager
+import androidx.core.app.NotificationCompat
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.Calendar
+import kotlin.math.sqrt
+import kotlin.random.Random
 
 /**
  * FloatingService
- * Hosts the Slime overlay, handles sensors (accelerometer shake, battery status, night time, idle timer),
- * dragging, double tap screen capture, and OpenRouter AI integration.
+ * Hosts the Slime overlay, handles sensors, random dance intervals,
+ * gestures, confused state reactions, and OpenRouter AI.
  */
 class FloatingService : Service(), SensorEventListener {
 
@@ -976,6 +1129,18 @@ class FloatingService : Service(), SensorEventListener {
 
     private var screenshotHelper: ScreenshotHelper? = null
     private var mediaProjection: MediaProjection? = null
+
+    // Dance Mode Timer: triggers dancing at random intervals between 45s and 90s
+    private val danceRunnable = object : Runnable {
+        override fun run() {
+            val idleFor = System.currentTimeMillis() - lastInteraction
+            if (floatingView?.mood != 1 && floatingView?.mood != 2 && idleFor < 300000) {
+                floatingView?.danceAnim(4500)
+            }
+            val nextDelay = 45000L + Random.nextLong(45000L)
+            handler.postDelayed(this, nextDelay)
+        }
+    }
 
     // Idle timer: prompts user if unattended for 2 minutes
     private val idleRunnable = object : Runnable {
@@ -1080,6 +1245,7 @@ class FloatingService : Service(), SensorEventListener {
 
         handler.post(idleRunnable)
         handler.post(timeRunnable)
+        handler.postDelayed(danceRunnable, 30000)
 
         setupTouchEvents()
 
@@ -1171,7 +1337,7 @@ class FloatingService : Service(), SensorEventListener {
 
     private fun onSingleTapped() {
         floatingView?.let { v ->
-            v.mood = (v.mood + 1) % 5
+            v.mood = (v.mood + 1) % 6
             v.bounceAnim()
             val msgs = when (v.mood) {
                 0 -> listOf("Hehe! 😊", "Squish squish!")
@@ -1179,6 +1345,7 @@ class FloatingService : Service(), SensorEventListener {
                 2 -> listOf("Grrr! 😠", "Don't poke me!")
                 3 -> listOf("Love you! 🥰", "My hero! <3")
                 4 -> listOf("Nom nom! 😋", "Yummy!")
+                5 -> listOf("Huh? 🤔", "Wait, what?", "Does not compute! 🧩", "Bloop?")
                 else -> listOf("Hi!")
             }
             v.say(msgs.random())
@@ -1191,7 +1358,16 @@ class FloatingService : Service(), SensorEventListener {
 
         // Query OpenRouter AI companion
         serviceScope.launch {
-            val prompt = "My mood is \${floatingView?.mood}, Hunger: \${stats.hunger}%. Say something cheeky and cute!"
+            val moodName = when (floatingView?.mood) {
+                0 -> "Happy"
+                1 -> "Sleepy"
+                2 -> "Grumpy"
+                3 -> "In Love"
+                4 -> "Eating"
+                5 -> "Puzzled / Confused"
+                else -> "Curious"
+            }
+            val prompt = "My mood is $moodName, Hunger: \${stats.hunger}%. Say something quirky and cute matching this exact mood!"
             val reply = OpenRouterClient.chat(this@FloatingService, prompt)
             withContext(Dispatchers.Main) {
                 floatingView?.say(reply, 5000)
@@ -1200,9 +1376,9 @@ class FloatingService : Service(), SensorEventListener {
     }
 
     private fun onDoubleTapped() {
-        floatingView?.mood = 3
+        floatingView?.mood = 5
         floatingView?.bounceAnim()
-        floatingView?.say("Looking at your screen... 👁️", 3000)
+        floatingView?.say("Looking closely at your screen... 🔍", 3000)
 
         serviceScope.launch {
             val helper = screenshotHelper
@@ -1217,11 +1393,12 @@ class FloatingService : Service(), SensorEventListener {
             } else {
                 OpenRouterClient.chat(
                     this@FloatingService,
-                    "I just double-tapped you! Describe how much fun we are having!"
+                    "I just double-tapped you! React with curious wonder!"
                 )
             }
 
             withContext(Dispatchers.Main) {
+                floatingView?.mood = 0
                 floatingView?.say(reply, 6000)
             }
         }
@@ -1237,8 +1414,8 @@ class FloatingService : Service(), SensorEventListener {
                 val now = System.currentTimeMillis()
                 if (now - lastShake > 1500) {
                     lastShake = now
-                    floatingView?.mood = 2
-                    floatingView?.say(listOf("Stop shaking me!! 🤢", "I'm dizzy! 😵💫", "Noooo!").random())
+                    floatingView?.mood = if (Random.nextBoolean()) 2 else 5
+                    floatingView?.say(listOf("Stop shaking me!! 🤢", "I'm dizzy! 😵💫", "Whoa, everything is spinning! 💫").random())
                     floatingView?.bounceAnim()
                     lastInteraction = now
                 }
@@ -1270,7 +1447,7 @@ class FloatingService : Service(), SensorEventListener {
 
         val notification: Notification = NotificationCompat.Builder(this, channelId)
             .setContentTitle("Smart Slime is alive 🧠💧")
-            .setContentText("He feels battery, time, shakes, and speaks OpenRouter AI!")
+            .setContentText("He feels battery, time, shakes, dances, and speaks OpenRouter AI!")
             .setSmallIcon(android.R.drawable.star_big_on)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
@@ -1294,6 +1471,7 @@ class FloatingService : Service(), SensorEventListener {
         sensorManager?.unregisterListener(this)
         handler.removeCallbacks(idleRunnable)
         handler.removeCallbacks(timeRunnable)
+        handler.removeCallbacks(danceRunnable)
         try {
             floatingView?.let { windowManager?.removeView(it) }
         } catch (e: Exception) {}
@@ -2077,34 +2255,47 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.2'
 
       - name: Grant Execute Permissions to Gradle
         run: |
-          if [ -f "./gradlew" ]; then
-            chmod +x ./gradlew
-          elif [ -f "./android/gradlew" ]; then
+          if [ -f "./android/gradlew" ]; then
             chmod +x ./android/gradlew
+          elif [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
           fi
 
       - name: Build Debug APK with Gradle
         run: |
           if [ -d "./android" ]; then
             cd android
+          fi
+          # Ensure Gradle wrapper exists or generate it
+          if [ ! -f "gradle/wrapper/gradle-wrapper.jar" ]; then
+            echo "Generating Gradle wrapper via Gradle CLI..."
+            gradle wrapper --gradle-version 8.2 || true
+          fi
+          if [ -f "./gradlew" ] && [ -f "gradle/wrapper/gradle-wrapper.jar" ]; then
+            chmod +x ./gradlew
             ./gradlew assembleDebug --stacktrace
           else
-            ./gradlew assembleDebug --stacktrace
+            echo "Building directly with system Gradle..."
+            gradle assembleDebug --stacktrace
           fi
 
       - name: Verify Generated APK
         run: |
           echo "Locating built APK files..."
-          find . -name "*.apk" -type f
+          find . -name "*.apk" -type f -exec ls -lh {} +
 
       - name: Upload Debug APK to Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: floating-buddy-ai-debug-apk
-          path: '**/app/build/outputs/apk/debug/*.apk'
+          path: |
+            **/app/build/outputs/apk/debug/*.apk
+            **/build/outputs/apk/debug/*.apk
           retention-days: 30
           if-no-files-found: error`
   },
