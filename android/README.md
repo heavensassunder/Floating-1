@@ -22,3 +22,16 @@ A cute slime buddy that floats on top of other Android apps and talks via OpenRo
    - Grant the "Display over other apps" permission when prompted.
    - Accept the screen capture / media projection prompt.
    - Enjoy your cute floating slime!
+
+## Automatic Debug APK via GitHub Actions
+This project includes a ready-to-run GitHub Actions workflow in `.github/workflows/build-apk.yml`.
+
+### How to Collect the Debug APK Artifact:
+1. Push this project to your GitHub repository.
+2. Go to the **Actions** tab on your GitHub repository.
+3. Select **Build Android Debug APK** in the left sidebar.
+4. Click **Run workflow** (or simply push a commit to trigger it automatically).
+5. Once the build completes successfully (green checkmark):
+   - Scroll down to the **Artifacts** section at the bottom of the workflow run summary.
+   - Click **`floating-buddy-ai-debug-apk`** to download your debug APK directly to your phone or computer!
+

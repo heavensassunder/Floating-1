@@ -2041,5 +2041,85 @@ androidx-material3 = { group = "androidx.compose.material3", name = "material3" 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }`
+  },
+  {
+    name: 'build-apk.yml',
+    path: '.github/workflows/build-apk.yml',
+    language: 'yaml',
+    category: 'Config',
+    description: 'GitHub Actions CI workflow that compiles and exports the debug APK to download in artifacts',
+    content: `name: Build Android Debug APK
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build & Export Debug APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Grant Execute Permissions to Gradle
+        run: |
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+          elif [ -f "./android/gradlew" ]; then
+            chmod +x ./android/gradlew
+          fi
+
+      - name: Build Debug APK with Gradle
+        run: |
+          if [ -d "./android" ]; then
+            cd android
+            ./gradlew assembleDebug --stacktrace
+          else
+            ./gradlew assembleDebug --stacktrace
+          fi
+
+      - name: Verify Generated APK
+        run: |
+          echo "Locating built APK files..."
+          find . -name "*.apk" -type f
+
+      - name: Upload Debug APK to Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: floating-buddy-ai-debug-apk
+          path: '**/app/build/outputs/apk/debug/*.apk'
+          retention-days: 30
+          if-no-files-found: error`
+  },
+  {
+    name: 'gradle-wrapper.properties',
+    path: 'gradle/wrapper/gradle-wrapper.properties',
+    language: 'properties',
+    category: 'Config',
+    description: 'Gradle wrapper configuration specifying Gradle 8.2 distribution',
+    content: `distributionBase=GRADLE_USER_HOME
+distributionPath=wrapper/dists
+distributionUrl=https\\://services.gradle.org/distributions/gradle-8.2-bin.zip
+networkTimeout=10000
+validateDistributionUrl=true
+zipStoreBase=GRADLE_USER_HOME
+zipStorePath=wrapper/dists`
   }
 ];

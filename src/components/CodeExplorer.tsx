@@ -66,13 +66,36 @@ export const CodeExplorer: React.FC = () => {
       );
 
       zip.file(
+        'gradlew',
+        `#!/bin/sh
+APP_BASE_NAME=\${0##*/}
+APP_HOME=$(cd -P -- "$(dirname -- "$0")" && pwd -P) || exit
+CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
+exec java -Dorg.gradle.appname=$APP_BASE_NAME -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"
+`,
+        { unixPermissions: '755' }
+      );
+      zip.file(
+        'gradlew.bat',
+        `@if "%DEBUG%" == "" @echo off
+set DIRNAME=%~dp0
+set APP_BASE_NAME=%~n0
+set APP_HOME=%DIRNAME%
+set CLASSPATH=%APP_HOME%\\gradle\\wrapper\\gradle-wrapper.jar
+java "-Dorg.gradle.appname=%APP_BASE_NAME%" -classpath "%CLASSPATH%" org.gradle.wrapper.GradleWrapperMain %*
+`
+      );
+      zip.file(
         'README.md',
         `# Floating Buddy AI (Android Project)
 
 1. Open Android Studio -> Open -> select this directory
 2. Let Gradle sync dependencies
 3. Run on physical device or emulator (Android 8.0+)
-4. Set OpenRouter API Key and tap "Start Floating Buddy"`
+4. Set OpenRouter API Key and tap "Start Floating Buddy"
+
+## Automatic Debug APK via GitHub Actions
+Push this repository to GitHub, go to the Actions tab, and download the "floating-buddy-ai-debug-apk" artifact!`
       );
 
       const blob = await zip.generateAsync({ type: 'blob' });

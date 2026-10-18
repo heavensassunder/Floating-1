@@ -99,13 +99,36 @@ export default function App() {
 </resources>`
       );
       zip.file(
+        'gradlew',
+        `#!/bin/sh
+APP_BASE_NAME=\${0##*/}
+APP_HOME=$(cd -P -- "$(dirname -- "$0")" && pwd -P) || exit
+CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
+exec java -Dorg.gradle.appname=$APP_BASE_NAME -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"
+`,
+        { unixPermissions: '755' }
+      );
+      zip.file(
+        'gradlew.bat',
+        `@if "%DEBUG%" == "" @echo off
+set DIRNAME=%~dp0
+set APP_BASE_NAME=%~n0
+set APP_HOME=%DIRNAME%
+set CLASSPATH=%APP_HOME%\\gradle\\wrapper\\gradle-wrapper.jar
+java "-Dorg.gradle.appname=%APP_BASE_NAME%" -classpath "%CLASSPATH%" org.gradle.wrapper.GradleWrapperMain %*
+`
+      );
+      zip.file(
         'README.md',
         `# Floating Buddy AI (Android Project)
 
 1. Open Android Studio -> Open -> select this directory
 2. Let Gradle sync dependencies
 3. Run on physical device or emulator (Android 8.0+)
-4. Set OpenRouter API Key and tap "Start Floating Buddy"`
+4. Set OpenRouter API Key and tap "Start Floating Buddy"
+
+## Automatic Debug APK via GitHub Actions
+Push this repository to GitHub, go to the Actions tab, and download the "floating-buddy-ai-debug-apk" artifact!`
       );
       const blob = await zip.generateAsync({ type: 'blob' });
       const url = URL.createObjectURL(blob);
@@ -303,6 +326,51 @@ export default function App() {
                     requests, stores OpenRouter API key, and displays live stat progress bars.
                   </p>
                 </div>
+              </div>
+            </div>
+
+            {/* GitHub Actions Debug APK CI card */}
+            <div className="bg-gradient-to-br from-indigo-950/80 to-slate-900 border border-sky-500/40 rounded-3xl p-6 shadow-xl space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-sky-500/20 text-sky-400 rounded-xl">
+                    <Zap className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white flex items-center gap-2">
+                      <span>GitHub Actions Debug APK Build</span>
+                      <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono">
+                        Ready to Export
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Workflow file: <code className="text-sky-300">.github/workflows/build-apk.yml</code>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-300 leading-relaxed">
+                When you push this project to GitHub, GitHub Actions will compile the Android app using
+                Ubuntu, JDK 17, and Gradle, automatically publishing the compiled <strong className="text-white">Debug APK</strong> as a downloadable artifact.
+              </p>
+
+              <div className="bg-slate-900/90 rounded-2xl p-4 border border-slate-800 space-y-2 text-xs">
+                <div className="font-semibold text-white flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  <span>How to collect the APK from GitHub:</span>
+                </div>
+                <ol className="list-decimal list-inside space-y-1.5 text-slate-300 text-[11px] pl-1">
+                  <li>Push your repository or click <strong>Actions</strong> &gt; <strong>Build Android Debug APK</strong>.</li>
+                  <li>Click <strong>Run workflow</strong> to start the build on GitHub's cloud runners.</li>
+                  <li>Wait ~2–3 minutes for the build to pass with a green checkmark.</li>
+                  <li>
+                    Scroll to the bottom of the run page to the <strong>Artifacts</strong> section.
+                  </li>
+                  <li>
+                    Click <strong className="text-sky-300">floating-buddy-ai-debug-apk</strong> to download your ready-to-install <code className="text-emerald-300">.apk</code> file!
+                  </li>
+                </ol>
               </div>
             </div>
 
